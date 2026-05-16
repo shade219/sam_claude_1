@@ -6,11 +6,16 @@ from contextlib import asynccontextmanager
 import config
 import db
 import fetcher
+import scheduler as sched
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     db.init_db()
+    sched.start()
     yield
+    sched.stop()
+
 
 app = FastAPI(title="Daily Digest", lifespan=lifespan)
 
@@ -42,7 +47,11 @@ def get_digest():
 
 @app.get("/api/status")
 def status():
-    return {"topics": db.get_topic_stats(), "configured": config.TOPICS}
+    return {
+        "topics": db.get_topic_stats(),
+        "configured": config.TOPICS,
+        "next_scheduled_run": sched.next_run_iso(),
+    }
 
 
 @app.post("/api/refresh")

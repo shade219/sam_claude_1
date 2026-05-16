@@ -151,6 +151,18 @@
 
   /* ── Status ── */
 
+  function formatNextRun(isoStr) {
+    if (!isoStr) return null;
+    const d = new Date(isoStr);
+    const now = new Date();
+    const isToday    = d.toDateString() === now.toDateString();
+    const isTomorrow = d.toDateString() === new Date(now.getTime() + 86400000).toDateString();
+    const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+    if (isToday)    return `today at ${time}`;
+    if (isTomorrow) return `tomorrow at ${time}`;
+    return `${d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${time}`;
+  }
+
   async function loadStatus() {
     try {
       const data  = await fetch('/api/status').then(r => r.json());
@@ -162,9 +174,10 @@
         total += s.count;
         if (s.last_fetched && (!lastFetched || s.last_fetched > lastFetched)) lastFetched = s.last_fetched;
       }
-      document.getElementById('header-meta').textContent = lastFetched
-        ? `Last updated ${timeAgo(lastFetched)} · ${total} article${total !== 1 ? 's' : ''}`
-        : 'No articles yet — click Refresh to fetch';
+      const nextRun   = formatNextRun(data.next_scheduled_run);
+      const lastPart  = lastFetched ? `Last updated ${timeAgo(lastFetched)} · ${total} article${total !== 1 ? 's' : ''}` : 'No articles yet — click Refresh to fetch';
+      const nextPart  = nextRun ? ` · Next auto-refresh ${nextRun}` : '';
+      document.getElementById('header-meta').textContent = lastPart + nextPart;
       renderNav();
     } catch { /* status is non-critical */ }
   }
