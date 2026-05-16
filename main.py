@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 import config
 import db
+import fetcher
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -41,5 +42,5 @@ def get_digest():
 
 @app.post("/api/refresh")
 def refresh():
-    # Scheduler and source clients wired up in Phase 2 & 5
-    return {"status": "ok", "message": "Refresh not yet implemented"}
+    count = fetcher.fetch_all()
+    return {"status": "ok", "articles_fetched": count}
