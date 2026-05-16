@@ -1,33 +1,43 @@
+import logging
 import httpx
 import config
+
+log = logging.getLogger(__name__)
 
 BASE_URL = "https://content.guardianapis.com/search"
 
 
 def fetch(topic: str) -> list[dict]:
-    query = config.TOPIC_GUARDIAN_QUERIES.get(topic, topic)
+    query   = config.TOPIC_GUARDIAN_QUERIES.get(topic, topic)
     section = config.TOPIC_GUARDIAN_SECTIONS.get(topic)
-    params = {
-        "q": query,
-        "api-key": config.GUARDIAN_API_KEY,
+    params  = {
+        "q":           query,
+        "api-key":     config.GUARDIAN_API_KEY,
         "show-fields": "trailText",
-        "order-by": "newest",
-        "page-size": 20,
+        "order-by":    "newest",
+        "page-size":   20,
     }
     if section:
         params["section"] = section
+
+    if not config.GUARDIAN_API_KEY:
+        raise ValueError("GUARDIAN_API_KEY is not set")
+
     with httpx.Client(timeout=10) as client:
         resp = client.get(BASE_URL, params=params)
         resp.raise_for_status()
 
     results = resp.json().get("response", {}).get("results", [])
+    if not results:
+        log.debug("Guardian returned 0 results for topic '%s'", topic)
+
     return [
         {
-            "title": r["webTitle"],
-            "url": r["webUrl"],
-            "source": "theguardian.com",
-            "topic": topic,
-            "published_at": r.get("webPublicationDate"),
+            "title":          r["webTitle"],
+            "url":            r["webUrl"],
+            "source":         "theguardian.com",
+            "topic":          topic,
+            "published_at":   r.get("webPublicationDate"),
             "popularity_raw": 0,
         }
         for r in results

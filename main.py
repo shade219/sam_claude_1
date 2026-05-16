@@ -1,3 +1,5 @@
+import logging
+import logging.config
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -8,9 +10,47 @@ import db
 import fetcher
 import scheduler as sched
 
+LOGGING_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {
+            "format": "[%(asctime)s] %(levelname)-8s %(name)s - %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        }
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "default",
+        }
+    },
+    "root": {"level": "INFO", "handlers": ["console"]},
+    # Quiet noisy third-party loggers
+    "loggers": {
+        "apscheduler":  {"level": "WARNING"},
+        "httpx":        {"level": "WARNING"},
+        "uvicorn":      {"level": "INFO"},
+    },
+}
+
+log = logging.getLogger(__name__)
+
+
+def _check_config():
+    missing = []
+    if not config.GUARDIAN_API_KEY:
+        missing.append("GUARDIAN_API_KEY")
+    if not config.GNEWS_API_KEY:
+        missing.append("GNEWS_API_KEY")
+    if missing:
+        log.warning("Missing API keys (sources will be skipped): %s", ", ".join(missing))
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logging.config.dictConfig(LOGGING_CONFIG)
+    _check_config()
     db.init_db()
     sched.start()
     yield

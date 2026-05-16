@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 import time
 import sources.guardian as guardian
@@ -6,10 +7,13 @@ import scoring
 import db
 import config
 
+log = logging.getLogger(__name__)
+
 GNEWS_DELAY_SECONDS = 2
 
 
 def fetch_all() -> int:
+    log.info("Fetch started for topics: %s", config.TOPICS)
     now = datetime.now(timezone.utc).isoformat()
     total_stored = 0
 
@@ -19,9 +23,9 @@ def fetch_all() -> int:
         try:
             fetched = guardian.fetch(topic)
             raw += fetched
-            print(f"  Guardian: {len(fetched)} fetched for '{topic}'")
+            log.info("Guardian: %d articles fetched for '%s'", len(fetched), topic)
         except Exception as e:
-            print(f"  Guardian failed for '{topic}': {e}")
+            log.warning("Guardian failed for '%s': %s", topic, e)
 
         if i > 0:
             time.sleep(GNEWS_DELAY_SECONDS)
@@ -29,24 +33,26 @@ def fetch_all() -> int:
         try:
             fetched = gnews.fetch(topic)
             raw += fetched
-            print(f"  GNews:    {len(fetched)} fetched for '{topic}'")
+            log.info("GNews: %d articles fetched for '%s'", len(fetched), topic)
         except Exception as e:
-            print(f"  GNews failed for '{topic}': {e}")
+            log.warning("GNews failed for '%s': %s", topic, e)
 
-        kept = 0
-        dropped = 0
+        kept = dropped = 0
         for article in raw:
             if not scoring.is_relevant(article):
                 dropped += 1
                 continue
-            scored = scoring.compute_score(article)
-            scored["fetched_at"] = now
-            db.upsert_article(scored)
-            kept += 1
+            try:
+                scored = scoring.compute_score(article)
+                scored["fetched_at"] = now
+                db.upsert_article(scored)
+                kept += 1
+            except Exception as e:
+                log.error("Failed to store article '%s': %s", article.get("url"), e)
 
-        print(f"  '{topic}': {kept} stored, {dropped} dropped (off-topic)")
+        log.info("'%s': %d stored, %d dropped (off-topic)", topic, kept, dropped)
         total_stored += kept
 
     db.clear_old_articles(days=7)
-    print(f"Fetch complete — {total_stored} articles stored across {len(config.TOPICS)} topics")
+    log.info("Fetch complete — %d articles stored across %d topics", total_stored, len(config.TOPICS))
     return total_stored
