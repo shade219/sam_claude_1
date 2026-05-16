@@ -40,6 +40,11 @@ def get_digest():
     return db.get_all_topics_articles(config.TOPICS, limit=config.TOP_N)
 
 
+@app.get("/api/status")
+def status():
+    return {"topics": db.get_topic_stats(), "configured": config.TOPICS}
+
+
 @app.post("/api/refresh")
 def refresh():
     count = fetcher.fetch_all()

@@ -5,96 +5,250 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Daily Digest</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #222; }
-    header { background: #1a1a2e; color: white; padding: 1.25rem 2rem; display: flex; align-items: center; justify-content: space-between; }
-    header h1 { font-size: 1.4rem; font-weight: 600; letter-spacing: 0.5px; }
-    header button { background: #e94560; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
-    header button:hover { background: #c73652; }
-    nav { background: white; border-bottom: 1px solid #ddd; padding: 0 2rem; display: flex; gap: 0; }
-    nav button { padding: 0.85rem 1.25rem; border: none; background: none; cursor: pointer; font-size: 0.9rem; color: #555; border-bottom: 3px solid transparent; }
-    nav button.active { color: #1a1a2e; border-bottom-color: #e94560; font-weight: 600; }
-    main { max-width: 860px; margin: 2rem auto; padding: 0 1rem; }
-    #status { text-align: center; color: #888; padding: 3rem 0; }
-    .card { background: white; border-radius: 8px; padding: 1.1rem 1.25rem; margin-bottom: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.07); display: flex; gap: 1rem; align-items: flex-start; }
-    .card-rank { font-size: 1.1rem; font-weight: 700; color: #ccc; min-width: 2rem; padding-top: 2px; }
-    .card-body { flex: 1; }
-    .card-title a { font-size: 1rem; font-weight: 600; color: #1a1a2e; text-decoration: none; }
-    .card-title a:hover { text-decoration: underline; }
-    .card-meta { margin-top: 0.35rem; font-size: 0.78rem; color: #888; display: flex; gap: 1rem; }
-    .score-pill { background: #eef; color: #446; border-radius: 4px; padding: 0.1rem 0.4rem; font-weight: 600; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #f1f5f9; color: #0f172a; min-height: 100vh; }
+
+    /* ── Header ── */
+    header { background: #0f172a; color: white; padding: 1rem 2rem 0.85rem; }
+    .header-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+    .header-title { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.3px; }
+    .header-date  { font-size: 0.78rem; color: #94a3b8; margin-top: 0.2rem; }
+    .header-meta  { font-size: 0.75rem; color: #475569; margin-top: 0.5rem; min-height: 1em; }
+
+    /* ── Refresh button ── */
+    .btn-refresh { background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 600; display: flex; align-items: center; gap: 0.35rem; transition: background 0.15s; flex-shrink: 0; }
+    .btn-refresh:hover:not(:disabled) { background: #2563eb; }
+    .btn-refresh:disabled { background: #334155; cursor: not-allowed; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinning { display: inline-block; animation: spin 0.75s linear infinite; }
+
+    /* ── Topic tabs ── */
+    nav { background: white; border-bottom: 1px solid #e2e8f0; padding: 0 2rem; display: flex; overflow-x: auto; scrollbar-width: none; }
+    nav::-webkit-scrollbar { display: none; }
+    .tab { padding: 0.8rem 1rem; border: none; background: none; cursor: pointer; font-size: 0.85rem; color: #64748b; border-bottom: 3px solid transparent; white-space: nowrap; display: flex; align-items: center; gap: 0.4rem; transition: color 0.15s; }
+    .tab:hover { color: #0f172a; }
+    .tab.active { color: #3b82f6; border-bottom-color: #3b82f6; font-weight: 600; }
+    .tab-badge { background: #f1f5f9; color: #94a3b8; border-radius: 10px; padding: 0.1rem 0.42rem; font-size: 0.7rem; font-weight: 700; }
+    .tab.active .tab-badge { background: #dbeafe; color: #3b82f6; }
+
+    /* ── Main content ── */
+    main { max-width: 800px; margin: 1.5rem auto; padding: 0 1rem 3rem; }
+
+    /* ── State messages (loading / empty) ── */
+    .state-msg { text-align: center; color: #94a3b8; padding: 4rem 0; font-size: 0.9rem; line-height: 1.6; }
+    .loader { width: 28px; height: 28px; border: 3px solid #e2e8f0; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.7s linear infinite; margin: 0 auto 1rem; }
+
+    /* ── Article cards ── */
+    .card { background: white; border-radius: 10px; padding: 0.95rem 1.1rem; margin-bottom: 0.65rem; border: 1px solid #e2e8f0; display: flex; gap: 0.9rem; align-items: flex-start; transition: box-shadow 0.15s, border-color 0.15s; }
+    .card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.07); border-color: #cbd5e1; }
+
+    /* Rank */
+    .rank { min-width: 2rem; text-align: center; padding-top: 1px; flex-shrink: 0; }
+    .rank-num { font-size: 0.82rem; font-weight: 700; color: #cbd5e1; }
+    .rank-1 .rank-num { color: #f59e0b; }
+    .rank-2 .rank-num { color: #94a3b8; }
+    .rank-3 .rank-num { color: #c2874f; }
+
+    /* Body */
+    .card-body { flex: 1; min-width: 0; }
+    .card-title { font-size: 0.95rem; font-weight: 600; line-height: 1.45; margin-bottom: 0.4rem; }
+    .card-title a { color: #0f172a; text-decoration: none; }
+    .card-title a:hover { color: #3b82f6; }
+
+    /* Meta */
+    .card-meta { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; font-size: 0.73rem; color: #64748b; margin-bottom: 0.55rem; }
+    .trust-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .dot-trusted  { background: #10b981; }
+    .dot-unknown  { background: #cbd5e1; }
+    .meta-sep { color: #e2e8f0; }
+
+    /* Score bar */
+    .score-row { display: flex; align-items: center; gap: 0.55rem; }
+    .bar-track { flex: 1; height: 3px; background: #f1f5f9; border-radius: 2px; overflow: hidden; }
+    .bar-fill  { height: 100%; border-radius: 2px; }
+    .fill-high { background: #10b981; }
+    .fill-mid  { background: #f59e0b; }
+    .fill-low  { background: #cbd5e1; }
+    .score-val { font-size: 0.7rem; color: #94a3b8; font-weight: 700; min-width: 2.5rem; text-align: right; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>Daily Digest</h1>
-    <button onclick="refresh()">Refresh</button>
-  </header>
-  <nav id="topic-nav"></nav>
-  <main>
-    <div id="status">Loading...</div>
-    <div id="articles"></div>
-  </main>
 
-  <script>
-    let topics = [];
-    let activeTopic = null;
+<header>
+  <div class="header-top">
+    <div>
+      <div class="header-title">Daily Digest</div>
+      <div class="header-date" id="header-date"></div>
+    </div>
+    <button class="btn-refresh" id="btn-refresh" onclick="triggerRefresh()">
+      <span id="refresh-icon">↻</span> Refresh
+    </button>
+  </div>
+  <div class="header-meta" id="header-meta">&nbsp;</div>
+</header>
 
-    async function loadTopics() {
-      const res = await fetch('/api/topics');
-      const data = await res.json();
-      topics = data.topics;
-      const nav = document.getElementById('topic-nav');
-      nav.innerHTML = topics.map(t =>
-        `<button onclick="selectTopic('${t}')" id="tab-${t}">${t}</button>`
-      ).join('');
-      if (topics.length > 0) selectTopic(topics[0]);
-    }
+<nav id="topic-nav"></nav>
 
-    async function selectTopic(topic) {
-      activeTopic = topic;
-      topics.forEach(t => {
-        document.getElementById(`tab-${t}`).classList.toggle('active', t === topic);
-      });
-      await loadArticles(topic);
-    }
+<main>
+  <div id="state-area"></div>
+  <div id="articles"></div>
+</main>
 
-    async function loadArticles(topic) {
-      document.getElementById('status').textContent = '';
-      document.getElementById('articles').innerHTML = '';
-      const res = await fetch(`/api/articles?topic=${encodeURIComponent(topic)}`);
-      const data = await res.json();
-      const articles = data.articles;
-      if (!articles || articles.length === 0) {
-        document.getElementById('status').textContent = 'No articles yet — try refreshing.';
+<script>
+  let topics = [];
+  let topicCounts = {};
+  let activeTopic = null;
+
+  /* ── Helpers ── */
+
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function safeUrl(url) {
+    try {
+      const u = new URL(url);
+      return (u.protocol === 'http:' || u.protocol === 'https:') ? esc(url) : '#';
+    } catch { return '#'; }
+  }
+
+  function timeAgo(dateStr) {
+    if (!dateStr) return '';
+    const diff = (Date.now() - new Date(dateStr)) / 1000;
+    if (diff < 60)     return 'just now';
+    if (diff < 3600)   return `${Math.floor(diff / 60)}m ago`;
+    if (diff < 86400)  return `${Math.floor(diff / 3600)}h ago`;
+    if (diff < 172800) return 'Yesterday';
+    return `${Math.floor(diff / 86400)}d ago`;
+  }
+
+  function scoreClass(s) {
+    if (s >= 0.65) return 'fill-high';
+    if (s >= 0.40) return 'fill-mid';
+    return 'fill-low';
+  }
+
+  function setLoading(on) {
+    const btn  = document.getElementById('btn-refresh');
+    const icon = document.getElementById('refresh-icon');
+    btn.disabled    = on;
+    icon.className  = on ? 'spinning' : '';
+    icon.textContent = '↻';
+  }
+
+  function setState(html) {
+    document.getElementById('state-area').innerHTML = html;
+    document.getElementById('articles').innerHTML   = '';
+  }
+
+  /* ── Nav ── */
+
+  function renderNav() {
+    document.getElementById('topic-nav').innerHTML = topics.map(t =>
+      `<button class="tab${t === activeTopic ? ' active' : ''}" id="tab-${esc(t)}" onclick="selectTopic('${esc(t)}')">${esc(t)}<span class="tab-badge">${topicCounts[t] ?? 0}</span></button>`
+    ).join('');
+  }
+
+  /* ── Status ── */
+
+  async function loadStatus() {
+    try {
+      const data  = await fetch('/api/status').then(r => r.json());
+      const stats = data.topics ?? {};
+      topicCounts = {};
+      let lastFetched = null, total = 0;
+      for (const [t, s] of Object.entries(stats)) {
+        topicCounts[t] = s.count;
+        total += s.count;
+        if (s.last_fetched && (!lastFetched || s.last_fetched > lastFetched)) lastFetched = s.last_fetched;
+      }
+      document.getElementById('header-meta').textContent = lastFetched
+        ? `Last updated ${timeAgo(lastFetched)} · ${total} article${total !== 1 ? 's' : ''}`
+        : 'No articles yet — click Refresh to fetch';
+      renderNav();
+    } catch { /* status is non-critical */ }
+  }
+
+  /* ── Boot ── */
+
+  async function loadTopics() {
+    document.getElementById('header-date').textContent =
+      new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    setState('<div class="state-msg"><div class="loader"></div>Loading…</div>');
+    const data = await fetch('/api/topics').then(r => r.json());
+    topics = data.topics ?? [];
+    await loadStatus();
+    if (topics.length > 0) selectTopic(topics[0]);
+  }
+
+  /* ── Topic selection ── */
+
+  async function selectTopic(topic) {
+    activeTopic = topic;
+    renderNav();
+    await loadArticles(topic);
+  }
+
+  /* ── Article rendering ── */
+
+  async function loadArticles(topic) {
+    setState('<div class="state-msg"><div class="loader"></div>Loading articles…</div>');
+    try {
+      const data     = await fetch(`/api/articles?topic=${encodeURIComponent(topic)}`).then(r => r.json());
+      const articles = data.articles ?? [];
+      document.getElementById('state-area').innerHTML = '';
+      if (articles.length === 0) {
+        setState('<div class="state-msg">No articles yet for this topic.<br>Click <strong>Refresh</strong> to fetch the latest.</div>');
         return;
       }
-      document.getElementById('articles').innerHTML = articles.map((a, i) => `
-        <div class="card">
-          <div class="card-rank">#${i + 1}</div>
-          <div class="card-body">
-            <div class="card-title"><a href="${a.url}" target="_blank">${a.title}</a></div>
-            <div class="card-meta">
-              <span>${a.source || 'Unknown'}</span>
-              <span>${a.published_at ? a.published_at.slice(0, 10) : ''}</span>
-              <span class="score-pill">score ${(a.score || 0).toFixed(2)}</span>
+      document.getElementById('articles').innerHTML = articles.map((a, i) => {
+        const rank    = i + 1;
+        const score   = a.score ?? 0;
+        const trusted = (a.trust_score ?? 0) >= 0.8;
+        return `
+          <div class="card">
+            <div class="rank rank-${rank <= 3 ? rank : 'n'}">
+              <span class="rank-num">#${rank}</span>
             </div>
-          </div>
-        </div>
-      `).join('');
+            <div class="card-body">
+              <div class="card-title">
+                <a href="${safeUrl(a.url)}" target="_blank" rel="noopener noreferrer">${esc(a.title)}</a>
+              </div>
+              <div class="card-meta">
+                <span class="trust-dot ${trusted ? 'dot-trusted' : 'dot-unknown'}"></span>
+                <span>${esc(a.source || 'Unknown')}</span>
+                <span class="meta-sep">·</span>
+                <span>${timeAgo(a.published_at)}</span>
+              </div>
+              <div class="score-row">
+                <div class="bar-track"><div class="bar-fill ${scoreClass(score)}" style="width:${Math.round(score * 100)}%"></div></div>
+                <span class="score-val">${score.toFixed(2)}</span>
+              </div>
+            </div>
+          </div>`;
+      }).join('');
+    } catch {
+      setState('<div class="state-msg">Failed to load articles. Is the server running?</div>');
     }
+  }
 
-    async function refresh() {
-      const btn = document.querySelector('header button');
-      btn.textContent = 'Refreshing...';
-      btn.disabled = true;
+  /* ── Refresh ── */
+
+  async function triggerRefresh() {
+    setLoading(true);
+    setState('<div class="state-msg"><div class="loader"></div>Fetching latest articles…</div>');
+    try {
       await fetch('/api/refresh', { method: 'POST' });
+      await loadStatus();
       if (activeTopic) await loadArticles(activeTopic);
-      btn.textContent = 'Refresh';
-      btn.disabled = false;
+    } catch {
+      setState('<div class="state-msg">Refresh failed — check the server logs.</div>');
+    } finally {
+      setLoading(false);
     }
+  }
 
-    loadTopics();
-  </script>
+  loadTopics();
+</script>
 </body>
 </html>

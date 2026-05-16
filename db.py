@@ -68,6 +68,16 @@ def get_all_topics_articles(topics: list[str], limit: int = 10) -> dict[str, lis
     return {topic: get_articles(topic, limit) for topic in topics}
 
 
+def get_topic_stats() -> dict[str, dict]:
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT topic, COUNT(*) as count, MAX(fetched_at) as last_fetched
+            FROM articles
+            GROUP BY topic
+        """).fetchall()
+    return {r["topic"]: {"count": r["count"], "last_fetched": r["last_fetched"]} for r in rows}
+
+
 def clear_old_articles(days: int = 7):
     with get_conn() as conn:
         conn.execute("""
