@@ -13,15 +13,19 @@ GNEWS_DELAY_SECONDS = 2
 
 
 def fetch_all() -> int:
-    log.info("Fetch started for topics: %s", config.TOPICS)
+    topic_configs = db.get_all_topic_configs()
+    topics = list(topic_configs.keys())
+    log.info("Fetch started for topics: %s", topics)
     now = datetime.now(timezone.utc).isoformat()
     total_stored = 0
 
-    for i, topic in enumerate(config.TOPICS):
+    for i, topic in enumerate(topics):
+        cfg = topic_configs[topic]
+        keywords = cfg["keywords"]
         raw = []
 
         try:
-            fetched = guardian.fetch(topic)
+            fetched = guardian.fetch(topic, cfg)
             raw += fetched
             log.info("Guardian: %d articles fetched for '%s'", len(fetched), topic)
         except Exception as e:
@@ -39,11 +43,11 @@ def fetch_all() -> int:
 
         kept = dropped = 0
         for article in raw:
-            if not scoring.is_relevant(article):
+            if not scoring.is_relevant(article, keywords):
                 dropped += 1
                 continue
             try:
-                scored = scoring.compute_score(article)
+                scored = scoring.compute_score(article, keywords)
                 scored["fetched_at"] = now
                 db.upsert_article(scored)
                 kept += 1
@@ -54,5 +58,5 @@ def fetch_all() -> int:
         total_stored += kept
 
     db.clear_old_articles(days=7)
-    log.info("Fetch complete — %d articles stored across %d topics", total_stored, len(config.TOPICS))
+    log.info("Fetch complete — %d articles stored across %d topics", total_stored, len(topics))
     return total_stored

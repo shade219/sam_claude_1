@@ -23,13 +23,28 @@
     .spinning { display: inline-block; animation: spin 0.75s linear infinite; }
 
     /* ── Topic tabs ── */
-    nav { background: white; border-bottom: 1px solid #e2e8f0; padding: 0 2rem; display: flex; overflow-x: auto; scrollbar-width: none; }
+    nav { background: white; border-bottom: 1px solid #e2e8f0; padding: 0 2rem; display: flex; align-items: stretch; overflow-x: auto; scrollbar-width: none; }
     nav::-webkit-scrollbar { display: none; }
     .tab { padding: 0.8rem 1rem; border: none; background: none; cursor: pointer; font-size: 0.85rem; color: #64748b; border-bottom: 3px solid transparent; white-space: nowrap; display: flex; align-items: center; gap: 0.4rem; transition: color 0.15s; }
     .tab:hover { color: #0f172a; }
     .tab.active { color: #3b82f6; border-bottom-color: #3b82f6; font-weight: 600; }
     .tab-badge { background: #f1f5f9; color: #94a3b8; border-radius: 10px; padding: 0.1rem 0.42rem; font-size: 0.7rem; font-weight: 700; }
     .tab.active .tab-badge { background: #dbeafe; color: #3b82f6; }
+    .tab-remove { font-size: 0.65rem; color: #cbd5e1; border: none; background: none; cursor: pointer; padding: 0 0 0 0.1rem; line-height: 1; border-radius: 3px; transition: color 0.15s; }
+    .tab-remove:hover { color: #ef4444; }
+    /* Add topic button */
+    .btn-add-topic { padding: 0.8rem 0.85rem; border: none; background: none; cursor: pointer; font-size: 1.1rem; color: #94a3b8; border-bottom: 3px solid transparent; transition: color 0.15s; flex-shrink: 0; }
+    .btn-add-topic:hover { color: #3b82f6; }
+    /* Add topic inline form */
+    .add-topic-form { display: none; align-items: center; gap: 0.5rem; padding: 0.4rem 0.5rem 0.4rem 1rem; border-left: 1px solid #e2e8f0; }
+    .add-topic-form.visible { display: flex; }
+    .add-topic-input { border: 1px solid #cbd5e1; border-radius: 6px; padding: 0.3rem 0.6rem; font-size: 0.82rem; outline: none; width: 140px; }
+    .add-topic-input:focus { border-color: #3b82f6; }
+    .btn-confirm-topic { background: #3b82f6; color: white; border: none; border-radius: 6px; padding: 0.3rem 0.7rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .btn-confirm-topic:disabled { background: #94a3b8; cursor: not-allowed; }
+    .btn-cancel-topic { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 0.8rem; padding: 0.3rem 0.4rem; }
+    .btn-cancel-topic:hover { color: #64748b; }
+    .add-topic-status { font-size: 0.75rem; color: #64748b; white-space: nowrap; }
 
     /* ── Main content ── */
     main { max-width: 800px; margin: 1.5rem auto; padding: 0 1rem 3rem; }
@@ -87,7 +102,16 @@
   <div class="header-meta" id="header-meta">&nbsp;</div>
 </header>
 
-<nav id="topic-nav"></nav>
+<nav id="topic-nav">
+  <button class="btn-add-topic" title="Add topic" onclick="showAddTopic()">＋</button>
+  <div class="add-topic-form" id="add-topic-form">
+    <input class="add-topic-input" id="add-topic-input" type="text" placeholder="e.g. economics" maxlength="50"
+           onkeydown="if(event.key==='Enter')confirmAddTopic(); if(event.key==='Escape')hideAddTopic();" />
+    <button class="btn-confirm-topic" id="btn-confirm-topic" onclick="confirmAddTopic()">Add</button>
+    <button class="btn-cancel-topic" onclick="hideAddTopic()">✕</button>
+    <span class="add-topic-status" id="add-topic-status"></span>
+  </div>
+</nav>
 
 <main>
   <div id="state-area"></div>
@@ -96,6 +120,7 @@
 
 <script>
   let topics = [];
+  let builtinTopics = new Set();
   let topicCounts = {};
   let activeTopic = null;
 
@@ -144,9 +169,81 @@
   /* ── Nav ── */
 
   function renderNav() {
-    document.getElementById('topic-nav').innerHTML = topics.map(t =>
-      `<button class="tab${t === activeTopic ? ' active' : ''}" id="tab-${esc(t)}" onclick="selectTopic('${esc(t)}')">${esc(t)}<span class="tab-badge">${topicCounts[t] ?? 0}</span></button>`
-    ).join('');
+    const nav = document.getElementById('topic-nav');
+    // Keep the add-button and form at the front, rebuild tabs after them
+    const addBtn  = nav.querySelector('.btn-add-topic');
+    const addForm = nav.querySelector('.add-topic-form');
+    // Remove old tab buttons
+    nav.querySelectorAll('.tab').forEach(el => el.remove());
+    // Insert tabs before the add button
+    topics.slice().reverse().forEach(t => {
+      const isBuiltin = builtinTopics.has(t);
+      const tabEl = document.createElement('button');
+      tabEl.className = 'tab' + (t === activeTopic ? ' active' : '');
+      tabEl.id = `tab-${esc(t)}`;
+      tabEl.innerHTML =
+        `${esc(t)}<span class="tab-badge">${topicCounts[t] ?? 0}</span>` +
+        (!isBuiltin ? `<span class="tab-remove" title="Remove topic" onclick="event.stopPropagation();removeTopic('${esc(t)}')">✕</span>` : '');
+      tabEl.onclick = () => selectTopic(t);
+      nav.insertBefore(tabEl, addBtn);
+    });
+  }
+
+  /* ── Add / remove topics ── */
+
+  function showAddTopic() {
+    document.getElementById('add-topic-form').classList.add('visible');
+    document.getElementById('add-topic-input').focus();
+  }
+
+  function hideAddTopic() {
+    document.getElementById('add-topic-form').classList.remove('visible');
+    document.getElementById('add-topic-input').value = '';
+    document.getElementById('add-topic-status').textContent = '';
+    document.getElementById('btn-confirm-topic').disabled = false;
+  }
+
+  async function confirmAddTopic() {
+    const input = document.getElementById('add-topic-input');
+    const topic = input.value.trim();
+    if (!topic) return;
+    const btn    = document.getElementById('btn-confirm-topic');
+    const status = document.getElementById('add-topic-status');
+    btn.disabled = true;
+    status.textContent = 'Generating config with Claude…';
+    try {
+      const res = await fetch('/api/topics', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        status.textContent = err.detail || 'Error adding topic';
+        btn.disabled = false;
+        return;
+      }
+      hideAddTopic();
+      // Reload topics and select the new one
+      const data = await fetch('/api/topics').then(r => r.json());
+      topics = data.topics ?? [];
+      builtinTopics = new Set(data.builtin ?? []);
+      await loadStatus();
+      selectTopic(topic);
+    } catch {
+      status.textContent = 'Request failed';
+      btn.disabled = false;
+    }
+  }
+
+  async function removeTopic(topic) {
+    if (!confirm(`Remove topic "${topic}" and all its articles?`)) return;
+    const res = await fetch(`/api/topics/${encodeURIComponent(topic)}`, { method: 'DELETE' });
+    if (!res.ok) { alert('Failed to remove topic'); return; }
+    topics = topics.filter(t => t !== topic);
+    if (activeTopic === topic) activeTopic = topics[0] ?? null;
+    renderNav();
+    if (activeTopic) await loadArticles(activeTopic);
   }
 
   /* ── Status ── */
@@ -190,6 +287,7 @@
     setState('<div class="state-msg"><div class="loader"></div>Loading…</div>');
     const data = await fetch('/api/topics').then(r => r.json());
     topics = data.topics ?? [];
+    builtinTopics = new Set(data.builtin ?? []);
     await loadStatus();
     if (topics.length > 0) selectTopic(topics[0]);
   }

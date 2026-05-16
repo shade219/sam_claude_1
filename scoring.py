@@ -32,20 +32,21 @@ def popularity_score(raw: int) -> float:
     return 0.0
 
 
-def relevance_score(title: str | None, topic: str) -> float:
+def relevance_score(title: str | None, topic: str, keywords: list[str] | None = None) -> float:
     """Returns 1.0 if the title contains at least one topic keyword, else 0.0."""
     if not title:
         return 0.0
     title_lower = title.lower()
-    keywords = config.TOPIC_KEYWORDS.get(topic, [topic])
+    if keywords is None:
+        keywords = config.TOPIC_KEYWORDS.get(topic, [topic])
     return 1.0 if any(kw.lower() in title_lower for kw in keywords) else 0.0
 
 
-def compute_score(article: dict) -> dict:
+def compute_score(article: dict, keywords: list[str] | None = None) -> dict:
     r = recency_score(article.get("published_at"))
     t = trust_score(article.get("source"))
     p = popularity_score(article.get("popularity_raw", 0))
-    rel = relevance_score(article.get("title"), article.get("topic", ""))
+    rel = relevance_score(article.get("title"), article.get("topic", ""), keywords)
 
     w = config.SCORE_WEIGHTS
 
@@ -70,5 +71,5 @@ def compute_score(article: dict) -> dict:
     }
 
 
-def is_relevant(article: dict) -> bool:
-    return relevance_score(article.get("title"), article.get("topic", "")) > 0.0
+def is_relevant(article: dict, keywords: list[str] | None = None) -> bool:
+    return relevance_score(article.get("title"), article.get("topic", ""), keywords) > 0.0
