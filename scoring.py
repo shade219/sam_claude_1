@@ -28,16 +28,39 @@ def trust_score(source: str | None) -> float:
 
 
 def popularity_score(raw: int) -> float:
-    # Placeholder — will normalize against upvote signals once Reddit is wired up
+    # Placeholder — normalized upvote signals added when Reddit is wired up
     return 0.0
+
+
+def relevance_score(title: str | None, topic: str) -> float:
+    """Returns 1.0 if the title contains at least one topic keyword, else 0.0."""
+    if not title:
+        return 0.0
+    title_lower = title.lower()
+    keywords = config.TOPIC_KEYWORDS.get(topic, [topic])
+    return 1.0 if any(kw.lower() in title_lower for kw in keywords) else 0.0
 
 
 def compute_score(article: dict) -> dict:
     r = recency_score(article.get("published_at"))
     t = trust_score(article.get("source"))
     p = popularity_score(article.get("popularity_raw", 0))
+    rel = relevance_score(article.get("title"), article.get("topic", ""))
+
     w = config.SCORE_WEIGHTS
-    total = r * w["recency"] + t * w["trust"] + p * w["popularity"]
+
+    # While popularity is unavailable, redistribute its weight proportionally
+    # across recency and trust so scores reflect the two active signals fairly
+    if p == 0.0:
+        active = w["recency"] + w["trust"]
+        wr = w["recency"] / active
+        wt = w["trust"] / active
+        wp = 0.0
+    else:
+        wr, wt, wp = w["recency"], w["trust"], w["popularity"]
+
+    total = (r * wr + t * wt + p * wp) * rel
+
     return {
         **article,
         "recency_score": round(r, 4),
@@ -45,3 +68,7 @@ def compute_score(article: dict) -> dict:
         "popularity_score": round(p, 4),
         "score": round(total, 4),
     }
+
+
+def is_relevant(article: dict) -> bool:
+    return relevance_score(article.get("title"), article.get("topic", "")) > 0.0
