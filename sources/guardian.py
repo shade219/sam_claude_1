@@ -7,9 +7,9 @@ log = logging.getLogger(__name__)
 BASE_URL = "https://content.guardianapis.com/search"
 
 
-def fetch(topic: str) -> list[dict]:
-    query   = config.TOPIC_GUARDIAN_QUERIES.get(topic, topic)
-    section = config.TOPIC_GUARDIAN_SECTIONS.get(topic)
+def fetch(topic: str, cfg: dict | None = None) -> list[dict]:
+    query   = (cfg or {}).get("guardian_query") or config.TOPIC_GUARDIAN_QUERIES.get(topic, topic)
+    section = (cfg or {}).get("guardian_section") or config.TOPIC_GUARDIAN_SECTIONS.get(topic)
     params  = {
         "q":           query,
         "api-key":     config.GUARDIAN_API_KEY,
