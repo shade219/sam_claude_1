@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daily Digest</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #222; }
+    header { background: #1a1a2e; color: white; padding: 1.25rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 1.4rem; font-weight: 600; letter-spacing: 0.5px; }
+    header button { background: #e94560; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.85rem; }
+    header button:hover { background: #c73652; }
+    nav { background: white; border-bottom: 1px solid #ddd; padding: 0 2rem; display: flex; gap: 0; }
+    nav button { padding: 0.85rem 1.25rem; border: none; background: none; cursor: pointer; font-size: 0.9rem; color: #555; border-bottom: 3px solid transparent; }
+    nav button.active { color: #1a1a2e; border-bottom-color: #e94560; font-weight: 600; }
+    main { max-width: 860px; margin: 2rem auto; padding: 0 1rem; }
+    #status { text-align: center; color: #888; padding: 3rem 0; }
+    .card { background: white; border-radius: 8px; padding: 1.1rem 1.25rem; margin-bottom: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.07); display: flex; gap: 1rem; align-items: flex-start; }
+    .card-rank { font-size: 1.1rem; font-weight: 700; color: #ccc; min-width: 2rem; padding-top: 2px; }
+    .card-body { flex: 1; }
+    .card-title a { font-size: 1rem; font-weight: 600; color: #1a1a2e; text-decoration: none; }
+    .card-title a:hover { text-decoration: underline; }
+    .card-meta { margin-top: 0.35rem; font-size: 0.78rem; color: #888; display: flex; gap: 1rem; }
+    .score-pill { background: #eef; color: #446; border-radius: 4px; padding: 0.1rem 0.4rem; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Daily Digest</h1>
+    <button onclick="refresh()">Refresh</button>
+  </header>
+  <nav id="topic-nav"></nav>
+  <main>
+    <div id="status">Loading...</div>
+    <div id="articles"></div>
+  </main>
+
+  <script>
+    let topics = [];
+    let activeTopic = null;
+
+    async function loadTopics() {
+      const res = await fetch('/api/topics');
+      const data = await res.json();
+      topics = data.topics;
+      const nav = document.getElementById('topic-nav');
+      nav.innerHTML = topics.map(t =>
+        `<button onclick="selectTopic('${t}')" id="tab-${t}">${t}</button>`
+      ).join('');
+      if (topics.length > 0) selectTopic(topics[0]);
+    }
+
+    async function selectTopic(topic) {
+      activeTopic = topic;
+      topics.forEach(t => {
+        document.getElementById(`tab-${t}`).classList.toggle('active', t === topic);
+      });
+      await loadArticles(topic);
+    }
+
+    async function loadArticles(topic) {
+      document.getElementById('status').textContent = '';
+      document.getElementById('articles').innerHTML = '';
+      const res = await fetch(`/api/articles?topic=${encodeURIComponent(topic)}`);
+      const data = await res.json();
+      const articles = data.articles;
+      if (!articles || articles.length === 0) {
+        document.getElementById('status').textContent = 'No articles yet — try refreshing.';
+        return;
+      }
+      document.getElementById('articles').innerHTML = articles.map((a, i) => `
+        <div class="card">
+          <div class="card-rank">#${i + 1}</div>
+          <div class="card-body">
+            <div class="card-title"><a href="${a.url}" target="_blank">${a.title}</a></div>
+            <div class="card-meta">
+              <span>${a.source || 'Unknown'}</span>
+              <span>${a.published_at ? a.published_at.slice(0, 10) : ''}</span>
+              <span class="score-pill">score ${(a.score || 0).toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function refresh() {
+      const btn = document.querySelector('header button');
+      btn.textContent = 'Refreshing...';
+      btn.disabled = true;
+      await fetch('/api/refresh', { method: 'POST' });
+      if (activeTopic) await loadArticles(activeTopic);
+      btn.textContent = 'Refresh';
+      btn.disabled = false;
+    }
+
+    loadTopics();
+  </script>
+</body>
+</html>
